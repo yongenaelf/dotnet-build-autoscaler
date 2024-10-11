@@ -2,7 +2,6 @@ apiVersion: keda.sh/v1alpha1
 kind: ScaledJob
 metadata:
   name: kafka-scaledjob
-  namespace: default
 spec:
   jobTargetRef:
     template:
@@ -15,6 +14,8 @@ spec:
             value: kafka:9092
           - name: KAFKA_TOPIC
             value: build_jobs
+          - name: KAFKA_CONSUMER_GROUP
+            value: build-consumer-group
         restartPolicy: Never
     backoffLimit: 4 # Number of retries before considering the job failed
   pollingInterval: 30  # Interval to check Kafka metrics to scale
@@ -27,4 +28,3 @@ spec:
       bootstrapServers: kafka:9092  # Replace with your Kafka broker
       consumerGroup: build-consumer-group      # Replace with your consumer group
       topic: build_jobs                        # Replace with your topic name
-      lagThreshold: "100"                      # Lag threshold to start scaling

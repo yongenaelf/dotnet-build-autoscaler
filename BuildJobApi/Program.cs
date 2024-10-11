@@ -103,7 +103,7 @@ app.MapPost("/upload", async (IFormFile file) =>
         // Send a Kafka message with the filename
         using (var producer = new ProducerBuilder<Null, string>(kafkaConfig).Build())
         {
-            var topic = "build_jobs";  // Define your Kafka topic
+            var topic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";  // Define your Kafka topic
             var message = $"File uploaded: {newFileName}";
 
             await producer.ProduceAsync(topic, new Message<Null, string> { Value = message });

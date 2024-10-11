@@ -32,6 +32,8 @@ spec:
               value: http://minio:9000
             - name: MINIO_SECRET_KEY
               value: password
+            - name: KAFKA_TOPIC
+              value: build_jobs
           image: backend
           name: backend
           ports:

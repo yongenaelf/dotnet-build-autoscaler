@@ -5,16 +5,19 @@ class Program
 {
     public static void Main(string[] args)
     {
+        var kafkaBroker = Environment.GetEnvironmentVariable("KAFKA_BROKER") ?? "kafka:9092";
+        var kafkaConsumerGroup = Environment.GetEnvironmentVariable("KAFKA_CONSUMER_GROUP") ?? "build-consumer-group";
         var config = new ConsumerConfig
         {
-            BootstrapServers = "kafka:9092",
-            GroupId = "build-consumer-group",
+            BootstrapServers = kafkaBroker,
+            GroupId = kafkaConsumerGroup,
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
 
         using var consumer = new ConsumerBuilder<Ignore, string>(config).Build();
         
-        consumer.Subscribe("build_jobs");
+        var kafkaTopic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
+        consumer.Subscribe(kafkaTopic);
 
         try
         {
