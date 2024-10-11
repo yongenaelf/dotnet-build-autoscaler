@@ -27,6 +27,8 @@ app.UseSwaggerUI();
 
 app.UseRouting();
 
+app.UseWebSockets();
+
 // Define the Kafka configuration
 var kafkaBootstrapServers = Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS") ?? "localhost:9092";
 var kafkaConfig = new ProducerConfig { BootstrapServers = kafkaBootstrapServers };
