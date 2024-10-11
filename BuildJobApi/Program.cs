@@ -28,6 +28,7 @@ app.UseSwaggerUI();
 app.UseRouting();
 
 app.UseWebSockets();
+app.UseStaticFiles();
 
 // Define the Kafka configuration
 var kafkaBootstrapServers = Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS") ?? "localhost:9092";
@@ -180,6 +181,12 @@ app.MapGet("/ws/{topic}", async (HttpContext context, string topic) =>
     {
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
     }
+});
+
+app.MapGet("/", async context =>
+{
+    context.Response.ContentType = "text/html";
+    await context.Response.SendFileAsync("wwwroot/index.html");
 });
 
 app.Run();
