@@ -3,7 +3,7 @@
 ## Development
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 Visit http://localhost:8080/swagger/index.html to see the API documentation.

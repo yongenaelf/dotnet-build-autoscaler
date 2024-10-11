@@ -1,7 +1,10 @@
+using Amazon.S3;
+using Amazon.S3.Model;
+using Amazon.S3.Transfer;
+using Confluent.Kafka;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
-using Confluent.Kafka;
 using System.IO;
 using System;
 using System.Threading.Tasks;
@@ -27,6 +30,41 @@ app.UseRouting();
 var kafkaBootstrapServers = Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS") ?? "localhost:9092";
 var kafkaConfig = new ProducerConfig { BootstrapServers = kafkaBootstrapServers };
 
+// Configure AWS S3 client with MinIO settings
+var s3Client = new AmazonS3Client(
+    Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY") ?? "admin", // Access key
+    Environment.GetEnvironmentVariable("MINIO_SECRET_KEY") ?? "password", // Secret key
+    new AmazonS3Config
+    {
+        ServiceURL = Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ?? "http://localhost:9000", // MinIO server URL
+        ForcePathStyle = true // Use path style URLs
+    });
+
+var bucketName = Environment.GetEnvironmentVariable("MINIO_BUCKET_NAME") ?? "job-requests"; // The name of the bucket
+
+// Ensure the bucket exists or create it if it doesn't
+async Task EnsureBucketExistsAsync()
+{
+    try
+    {
+        var response = await s3Client.ListBucketsAsync();
+        if (!response.Buckets.Exists(b => b.BucketName == bucketName))
+        {
+            // Create bucket if it does not exist
+            await s3Client.PutBucketAsync(new PutBucketRequest
+            {
+                BucketName = bucketName
+            });
+        }
+    }
+    catch (AmazonS3Exception e)
+    {
+        Console.WriteLine($"Error accessing bucket {bucketName}: {e.Message}");
+    }
+}
+
+await EnsureBucketExistsAsync(); 
+
 // Define the endpoint for uploading files
 app.MapPost("/upload", async (IFormFile file) =>
 {
@@ -42,20 +80,24 @@ app.MapPost("/upload", async (IFormFile file) =>
     var fileExtension = Path.GetExtension(file.FileName);
     var newFileName = $"{jobId}{fileExtension}";
 
-    var filePath = Path.Combine("uploads", newFileName);
+    // Construct the file path in MinIO
+    var filePath = $"{bucketName}/{newFileName}";
 
     try
     {
-        // Ensure the uploads directory exists
-        if (!Directory.Exists("uploads"))
+        // Upload file to MinIO
+        using (var stream = file.OpenReadStream())
         {
-            Directory.CreateDirectory("uploads");
-        }
+            var uploadRequest = new TransferUtilityUploadRequest
+            {
+                InputStream = stream,
+                Key = newFileName,
+                BucketName = bucketName,
+                ContentType = file.ContentType
+            };
 
-        // Save the uploaded file with the new name
-        using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
+            var fileTransferUtility = new TransferUtility(s3Client);
+            await fileTransferUtility.UploadAsync(uploadRequest);
         }
 
         // Send a Kafka message with the filename
