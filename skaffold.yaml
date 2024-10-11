@@ -8,10 +8,16 @@ build:
       context: BuildJobApi
       docker:
         dockerfile: Dockerfile
+    - image: kafka-consumer
+      context: KafkaConsumer
+      docker:
+        dockerfile: Dockerfile
 manifests:
   rawYaml:
     - kubernetes/backend-deployment.yaml
     - kubernetes/backend-service.yaml
+    - kubernetes/keda-scaled-jobs.yaml
+    - kubernetes/kafdrop.yaml
 deploy:
   helm:
     releases:

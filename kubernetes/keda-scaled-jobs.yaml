@@ -1,0 +1,30 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: kafka-scaledjob
+  namespace: default
+spec:
+  jobTargetRef:
+    template:
+      spec:
+        containers:
+        - name: kafka-consumer
+          image: kafka-consumer # Replace with your consumer Docker image
+          env:
+          - name: KAFKA_BROKER
+            value: kafka:9092
+          - name: KAFKA_TOPIC
+            value: build_jobs
+        restartPolicy: Never
+    backoffLimit: 4 # Number of retries before considering the job failed
+  pollingInterval: 30  # Interval to check Kafka metrics to scale
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  maxReplicaCount: 10 # Maximum number of job instances to run in parallel
+  triggers:
+  - type: kafka
+    metadata:
+      bootstrapServers: kafka:9092  # Replace with your Kafka broker
+      consumerGroup: build-consumer-group      # Replace with your consumer group
+      topic: build_jobs                        # Replace with your topic name
+      lagThreshold: "100"                      # Lag threshold to start scaling
