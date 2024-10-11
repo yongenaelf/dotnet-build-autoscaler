@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using System;
+using System.Net.WebSockets;
 using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -63,7 +64,7 @@ async Task EnsureBucketExistsAsync()
     }
 }
 
-await EnsureBucketExistsAsync(); 
+await EnsureBucketExistsAsync();
 
 // Define the endpoint for uploading files
 app.MapPost("/upload", async (IFormFile file, string? command = "build") =>
@@ -133,6 +134,51 @@ app.MapPost("/upload", async (IFormFile file, string? command = "build") =>
         return Results.Problem(detail: ex.Message, statusCode: 500, title: "Internal Server Error");
     }
 }).DisableAntiforgery();
+
+app.MapGet("/ws/{topic}", async (HttpContext context, string topic) =>
+{
+    if (context.WebSockets.IsWebSocketRequest)
+    {
+        var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+        var kafkaConsumerConfig = new ConsumerConfig
+        {
+            GroupId = "websocket-consumer-group",
+            BootstrapServers = kafkaBootstrapServers,
+            AutoOffsetReset = AutoOffsetReset.Earliest
+        };
+
+        using (var consumer = new ConsumerBuilder<Ignore, string>(kafkaConsumerConfig).Build())
+        {
+            consumer.Subscribe(topic);
+
+            try
+            {
+                while (webSocket.State == WebSocketState.Open)
+                {
+                    var consumeResult = consumer.Consume();
+                    var message = consumeResult.Message.Value;
+
+                    var buffer = System.Text.Encoding.UTF8.GetBytes(message);
+                    var segment = new ArraySegment<byte>(buffer);
+
+                    await webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Handle cancellation
+            }
+            finally
+            {
+                consumer.Close();
+            }
+        }
+    }
+    else
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+    }
+});
 
 app.Run();
 

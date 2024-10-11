@@ -38,6 +38,9 @@ class Program
     var kafkaTopic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
     consumer.Subscribe(kafkaTopic);
 
+    var producerConfig = new ProducerConfig { BootstrapServers = kafkaBroker };
+    using var producer = new ProducerBuilder<Null, string>(producerConfig).Build();
+
     try
     {
       while (true)
@@ -69,8 +72,9 @@ class Program
             ZipFileExtensions.ExtractToDirectory(archive, extractPath);
 
             var csprojFile = Directory.GetFiles(extractPath, "*.csproj", SearchOption.AllDirectories).FirstOrDefault();
-            
-            if (command == "test") {
+
+            if (command == "test")
+            {
               var csprojTestFile = Directory.GetFiles(extractPath, "*.Tests.csproj", SearchOption.AllDirectories).FirstOrDefault();
 
               if (csprojTestFile != null)
@@ -96,24 +100,38 @@ class Program
 
               using (var process = Process.Start(processInfo))
               {
-                process.OutputDataReceived += (sender, args) => 
+                process.OutputDataReceived += (sender, args) =>
                 {
                   Console.WriteLine(args.Data);
+
+                  producer.Produce(jobId + "_output", new Message<Null, string> { Value = args.Data });
+
                   if (args.Data != null && args.Data.Contains(".dll.patched"))
                   {
                     var patchedDllPath = Path.Combine(Path.GetDirectoryName(csprojFile), args.Data.Trim());
                     if (File.Exists(patchedDllPath))
                     {
-                      var uploadRequest = new TransferUtilityUploadRequest
+                      var patchedDllBytes = File.ReadAllBytes(patchedDllPath);
+                      var patchedDllBase64 = Convert.ToBase64String(patchedDllBytes);
+
+                      var resultMessage = new KafkaMessage
                       {
-                        BucketName = bucketName,
-                        Key = $"{jobId}-dll",
-                        FilePath = patchedDllPath
+                        Message = patchedDllBase64,
+                        Metadata = new KafkaMetadata
+                        {
+                          JobId = jobId,
+                          FileName = fileName,
+                          UploadTime = DateTime.UtcNow,
+                          Command = command
+                        }
                       };
 
-                      var fileTransferUtility = new TransferUtility(s3Client);
-                      fileTransferUtility.Upload(uploadRequest);
-                      Console.WriteLine($"Patched DLL uploaded to MinIO as {jobId}-dll.");
+                      var resultMessageJson = System.Text.Json.JsonSerializer.Serialize(resultMessage);
+                      producer.Produce(jobId + "_success", new Message<Null, string> { Value = resultMessageJson });
+                    }
+                    else
+                    {
+                      Console.WriteLine("Patched DLL not found.");
                     }
                   }
                 };
@@ -141,14 +159,14 @@ class Program
 
 public class KafkaMessage
 {
-    public string Message { get; set; }
-    public KafkaMetadata Metadata { get; set; }
+  public string Message { get; set; }
+  public KafkaMetadata Metadata { get; set; }
 }
 
 public class KafkaMetadata
 {
-    public string JobId { get; set; }
-    public string FileName { get; set; }
-    public DateTime UploadTime { get; set; }
-    public string Command { get; set; }
+  public string JobId { get; set; }
+  public string FileName { get; set; }
+  public DateTime UploadTime { get; set; }
+  public string Command { get; set; }
 }
