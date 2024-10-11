@@ -11,6 +11,7 @@ brew install skaffold
 Then, run:
 
 ```bash
+kubectl config use-context docker-desktop 
 skaffold dev --port-forward
 ```
 
