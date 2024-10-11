@@ -104,6 +104,11 @@ app.MapPost("/upload", async (IFormFile file, string? command = "build") =>
             await fileTransferUtility.UploadAsync(uploadRequest);
         }
 
+        if (command == "share")
+        {
+            return Results.Ok(new { Message = "File uploaded successfully", JobId = jobId, FilePath = filePath });
+        }
+
         // Send a Kafka message with the filename
         using (var producer = new ProducerBuilder<Null, string>(kafkaConfig).Build())
         {
@@ -118,7 +123,7 @@ app.MapPost("/upload", async (IFormFile file, string? command = "build") =>
                     JobId = jobId,
                     FileName = newFileName,
                     UploadTime = DateTime.UtcNow,
-                    Command = command
+                    Command = command ?? "build"
                 }
             };
 
@@ -137,6 +142,26 @@ app.MapPost("/upload", async (IFormFile file, string? command = "build") =>
         return Results.Problem(detail: ex.Message, statusCode: 500, title: "Internal Server Error");
     }
 }).DisableAntiforgery();
+
+app.MapGet("/share/{jobId}", async (string jobId) =>
+{
+    var getObjectRequest = new GetObjectRequest
+    {
+        BucketName = bucketName,
+        Key = $"{jobId}.zip"
+    };
+
+    try
+    {
+        var getObjectResponse = await s3Client.GetObjectAsync(getObjectRequest);
+
+        return Results.File(getObjectResponse.ResponseStream, getObjectResponse.Headers.ContentType, $"{jobId}.zip");
+    }
+    catch (AmazonS3Exception e)
+    {
+        return Results.Problem(detail: e.Message, statusCode: 404, title: "File not found");
+    }
+});
 
 app.MapGet("/ws/{topic}", async (HttpContext context, string topic) =>
 {

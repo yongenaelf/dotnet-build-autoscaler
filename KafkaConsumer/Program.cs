@@ -147,6 +147,17 @@ class Program
             }
           }
         }
+
+        if (command != "share") {
+          // Delete the file from MinIO
+          var deleteObjectRequest = new DeleteObjectRequest
+          {
+            BucketName = bucketName,
+            Key = fileName
+          };
+
+          s3Client.DeleteObjectAsync(deleteObjectRequest).Wait();
+        }
       }
     }
     catch (Exception e)
