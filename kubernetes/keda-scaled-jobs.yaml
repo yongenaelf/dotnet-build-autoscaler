@@ -16,6 +16,14 @@ spec:
             value: build_jobs
           - name: KAFKA_CONSUMER_GROUP
             value: build-consumer-group
+          - name: MINIO_ACCESS_KEY
+            value: admin
+          - name: MINIO_BUCKET_NAME
+            value: job-requests
+          - name: MINIO_ENDPOINT
+            value: http://minio.default.svc.cluster.local:9000
+          - name: MINIO_SECRET_KEY
+            value: password
         restartPolicy: Never
     backoffLimit: 4 # Number of retries before considering the job failed
   pollingInterval: 30  # Interval to check Kafka metrics to scale

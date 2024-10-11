@@ -106,17 +106,15 @@ app.MapPost("/upload", async (IFormFile file) =>
             var topic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";  // Define your Kafka topic
             var message = $"File uploaded: {newFileName}";
 
-            var metadata = new
-            {
-                JobId = jobId,
-                FileName = newFileName,
-                UploadTime = DateTime.UtcNow
-            };
-
-            var messageWithMetadata = new
+            var messageWithMetadata = new KafkaMessage
             {
                 Message = message,
-                Metadata = metadata
+                Metadata = new KafkaMetadata
+                {
+                    JobId = jobId,
+                    FileName = newFileName,
+                    UploadTime = DateTime.UtcNow
+                }
             };
 
             var messageValue = System.Text.Json.JsonSerializer.Serialize(messageWithMetadata);
@@ -136,3 +134,16 @@ app.MapPost("/upload", async (IFormFile file) =>
 }).DisableAntiforgery();
 
 app.Run();
+
+public class KafkaMessage
+{
+    public string Message { get; set; }
+    public KafkaMetadata Metadata { get; set; }
+}
+
+public class KafkaMetadata
+{
+    public string JobId { get; set; }
+    public string FileName { get; set; }
+    public DateTime UploadTime { get; set; }
+}

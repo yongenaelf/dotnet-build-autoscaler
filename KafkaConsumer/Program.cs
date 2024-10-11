@@ -45,18 +45,16 @@ class Program
         var cr = consumer.Consume();
         Console.WriteLine($"Consumed message '{cr.Message.Value}' at: '{cr.TopicPartitionOffset}'.");
 
-        var messageValue = System.Text.Json.JsonSerializer.Deserialize<dynamic>(cr.Message.Value);
+        var messageValue = System.Text.Json.JsonSerializer.Deserialize<KafkaMessage>(cr.Message.Value);
+
         var jobId = messageValue.Metadata.JobId;
         var fileName = messageValue.Metadata.FileName;
-
-        // Construct the file path in MinIO
-        var filePath = $"{bucketName}/{fileName}";
 
         // get the file from minio
         var getObjectRequest = new GetObjectRequest
         {
           BucketName = bucketName,
-          Key = filePath
+          Key = fileName
         };
 
         var getObjectResponse = s3Client.GetObjectAsync(getObjectRequest).Result;
@@ -123,4 +121,17 @@ class Program
       consumer.Close();
     }
   }
+}
+
+public class KafkaMessage
+{
+    public string Message { get; set; }
+    public KafkaMetadata Metadata { get; set; }
+}
+
+public class KafkaMetadata
+{
+    public string JobId { get; set; }
+    public string FileName { get; set; }
+    public DateTime UploadTime { get; set; }
 }
