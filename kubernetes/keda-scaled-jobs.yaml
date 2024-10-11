@@ -11,7 +11,7 @@ spec:
           image: kafka-consumer # Replace with your consumer Docker image
           env:
           - name: KAFKA_BROKER
-            value: kafka:9092
+            value: kafka.default.svc.cluster.local:9092
           - name: KAFKA_TOPIC
             value: build_jobs
           - name: KAFKA_CONSUMER_GROUP
@@ -25,6 +25,6 @@ spec:
   triggers:
   - type: kafka
     metadata:
-      bootstrapServers: kafka:9092  # Replace with your Kafka broker
+      bootstrapServers: kafka.default.svc.cluster.local:9092  # Replace with your Kafka broker
       consumerGroup: build-consumer-group      # Replace with your consumer group
       topic: build_jobs                        # Replace with your topic name
