@@ -106,7 +106,22 @@ app.MapPost("/upload", async (IFormFile file) =>
             var topic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";  // Define your Kafka topic
             var message = $"File uploaded: {newFileName}";
 
-            await producer.ProduceAsync(topic, new Message<Null, string> { Value = message });
+            var metadata = new
+            {
+                JobId = jobId,
+                FileName = newFileName,
+                UploadTime = DateTime.UtcNow
+            };
+
+            var messageWithMetadata = new
+            {
+                Message = message,
+                Metadata = metadata
+            };
+
+            var messageValue = System.Text.Json.JsonSerializer.Serialize(messageWithMetadata);
+
+            await producer.ProduceAsync(topic, new Message<Null, string> { Value = messageValue });
             // Use synchronous Flush to ensure delivery
             producer.Flush(TimeSpan.FromSeconds(10));
         }

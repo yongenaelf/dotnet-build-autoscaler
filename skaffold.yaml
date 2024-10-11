@@ -6,12 +6,8 @@ build:
   artifacts:
     - image: backend
       context: BuildJobApi
-      docker:
-        dockerfile: Dockerfile
-    - image: kafka-consumer
+    - image: builder
       context: KafkaConsumer
-      docker:
-        dockerfile: Dockerfile
 manifests:
   rawYaml:
     - kubernetes/backend-deployment.yaml
@@ -37,3 +33,8 @@ deploy:
         remoteChart: oci://registry-1.docker.io/bitnamicharts/minio
         setValues:
           auth.rootPassword: password
+
+resourceSelector:
+  allow:
+    - groupKind: ScaledJob.keda.sh
+      image: [".*"]

@@ -7,8 +7,8 @@ spec:
     template:
       spec:
         containers:
-        - name: kafka-consumer
-          image: kafka-consumer # Replace with your consumer Docker image
+        - name: builder
+          image: builder # Replace with your consumer Docker image
           env:
           - name: KAFKA_BROKER
             value: kafka.default.svc.cluster.local:9092
