@@ -49,6 +49,7 @@ class Program
 
         var jobId = messageValue.Metadata.JobId;
         var fileName = messageValue.Metadata.FileName;
+        var command = messageValue.Metadata.Command;
 
         // get the file from minio
         var getObjectRequest = new GetObjectRequest
@@ -68,9 +69,24 @@ class Program
             ZipFileExtensions.ExtractToDirectory(archive, extractPath);
 
             var csprojFile = Directory.GetFiles(extractPath, "*.csproj", SearchOption.AllDirectories).FirstOrDefault();
+            
+            if (command == "test") {
+              var csprojTestFile = Directory.GetFiles(extractPath, "*.Tests.csproj", SearchOption.AllDirectories).FirstOrDefault();
+
+              if (csprojTestFile != null)
+              {
+                csprojFile = csprojTestFile;
+              }
+              else
+              {
+                csprojFile = null;
+                Console.WriteLine("No .Tests.csproj file found in the extracted archive.");
+              }
+            }
+
             if (csprojFile != null)
             {
-              var processInfo = new ProcessStartInfo("dotnet", $"build \"{csprojFile}\"")
+              var processInfo = new ProcessStartInfo("dotnet", $"{command} \"{csprojFile}\"")
               {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -134,4 +150,5 @@ public class KafkaMetadata
     public string JobId { get; set; }
     public string FileName { get; set; }
     public DateTime UploadTime { get; set; }
+    public string Command { get; set; }
 }

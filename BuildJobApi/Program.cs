@@ -66,7 +66,7 @@ async Task EnsureBucketExistsAsync()
 await EnsureBucketExistsAsync(); 
 
 // Define the endpoint for uploading files
-app.MapPost("/upload", async (IFormFile file) =>
+app.MapPost("/upload", async (IFormFile file, string? command = "build") =>
 {
     if (file == null || file.Length == 0)
     {
@@ -113,7 +113,8 @@ app.MapPost("/upload", async (IFormFile file) =>
                 {
                     JobId = jobId,
                     FileName = newFileName,
-                    UploadTime = DateTime.UtcNow
+                    UploadTime = DateTime.UtcNow,
+                    Command = command
                 }
             };
 
@@ -146,4 +147,5 @@ public class KafkaMetadata
     public string JobId { get; set; }
     public string FileName { get; set; }
     public DateTime UploadTime { get; set; }
+    public string Command { get; set; }
 }
