@@ -2,16 +2,20 @@
 
 ## Development
 
+First, install Skaffold:
+
 ```bash
-docker compose up -d --build
+brew install skaffold
+```
+
+Then, run:
+
+```bash
+skaffold dev --port-forward
 ```
 
 Visit http://localhost:8080/swagger/index.html to see the API documentation.
 
 ### Clean up
 
-After you are done, you can stop with:
-
-```bash
-docker compose down
-```
+After you are done, you can stop with `Ctrl+C`.
