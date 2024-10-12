@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="AWSSDK.S3" Version="3.7.404.5" />
+    <PackageReference Include="ClamAV.Net" Version="0.1.166" />
     <PackageReference Include="Confluent.Kafka" Version="2.6.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>

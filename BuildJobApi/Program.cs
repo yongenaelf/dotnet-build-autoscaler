@@ -35,6 +35,8 @@ var kafkaConsumerConfig = new ConsumerConfig
 builder.Services.AddSingleton<IEventSubscribeService>(new EventSubscribeService(kafkaConsumerConfig));
 #endregion
 
+builder.Services.AddSingleton<IVirusScanService>(new VirusScanService(Environment.GetEnvironmentVariable("CLAMAV_CONNECTION_STRING") ?? "tcp://127.0.0.1:3310"));
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())

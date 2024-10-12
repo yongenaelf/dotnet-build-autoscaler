@@ -6,10 +6,11 @@ using Shared.Models;
 namespace BuildJobApi.Controllers;
 
 [ApiController]
-public class UploadController(IObjectStorageService objectStorageService, IEventPublishService eventPublishService) : ControllerBase
+public class UploadController(IObjectStorageService objectStorageService, IEventPublishService eventPublishService, IVirusScanService virusScanService) : ControllerBase
 {
   private readonly IObjectStorageService _objectStorageService = objectStorageService;
   private readonly IEventPublishService _eventPublishService = eventPublishService;
+  private readonly IVirusScanService _virusScanService = virusScanService;
   private readonly string _topic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
 
   [HttpPost]
@@ -31,6 +32,9 @@ public class UploadController(IObjectStorageService objectStorageService, IEvent
     try
     {
       using var stream = file.OpenReadStream();
+
+      await _virusScanService.ScanAsync(stream);
+
       await _objectStorageService.Put(newFileName, file.ContentType, stream);
 
       var message = $"File uploaded: {newFileName}";
