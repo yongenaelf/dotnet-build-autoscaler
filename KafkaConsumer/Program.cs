@@ -28,7 +28,7 @@ var kafkaConsumerConfig = new ConsumerConfig
 {
   GroupId = "build-consumer-group",
   BootstrapServers = kafkaBootstrapServers,
-  AutoOffsetReset = AutoOffsetReset.Earliest
+  AutoOffsetReset = AutoOffsetReset.Latest
 };
 var eventSubscribeService = new EventSubscribeService(kafkaConsumerConfig);
 #endregion
@@ -141,8 +141,6 @@ try
 
     Console.WriteLine("Job completed.");
 
-    // Stop the consumer after the job is completed
-    cancellationToken.Cancel();
   }, cancellationToken.Token);
 }
 catch (Exception e)
