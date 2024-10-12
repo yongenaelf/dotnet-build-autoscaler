@@ -5,16 +5,10 @@ using Amazon.S3.Transfer;
 
 namespace Shared.Services;
 
-public class ObjectStorageService : IObjectStorageService
+public class ObjectStorageService(string awsAccessKeyId, string awsSecretAccessKey, AmazonS3Config clientConfig, string bucketName) : IObjectStorageService
 {
-  private IAmazonS3 _s3Client;
-  private readonly string _bucketName;
-
-  public ObjectStorageService(string awsAccessKeyId, string awsSecretAccessKey, AmazonS3Config clientConfig, string bucketName)
-  {
-    _s3Client = new AmazonS3Client(awsAccessKeyId, awsSecretAccessKey, clientConfig);
-    _bucketName = bucketName;
-  }
+  private IAmazonS3 _s3Client = new AmazonS3Client(awsAccessKeyId, awsSecretAccessKey, clientConfig);
+  private readonly string _bucketName = bucketName;
 
   public async Task Delete(string key)
   {
@@ -45,7 +39,7 @@ public class ObjectStorageService : IObjectStorageService
         Key = key
       };
 
-      var getObjectResponse = _s3Client.GetObjectAsync(getObjectRequest).Result;
+      var getObjectResponse = await _s3Client.GetObjectAsync(getObjectRequest);
 
       return await Task.FromResult(getObjectResponse.ResponseStream);
     }

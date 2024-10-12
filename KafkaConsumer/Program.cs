@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using Shared.Models;
 using Shared.Services;
+using System.Text.Json;
 
 #region ObjectStorageService configuration
 var awsAccessKeyId = Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY") ?? "minio";
@@ -32,6 +33,7 @@ var eventSubscribeService = new EventSubscribeService(kafkaConsumerConfig);
 #endregion
 
 var kafkaTopic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
+var cancellationToken = new CancellationTokenSource();
 
 try
 {
@@ -41,7 +43,9 @@ try
     var fileName = message.Metadata.FileName;
     var command = message.Metadata.Command;
 
-    if (command != "build" || command != "test")
+    Console.WriteLine($"Starting: {fileName} for job {jobId} with command {command}");
+
+    if (new List<string> { "build", "test" }.Contains(command) == false)
     {
       Console.WriteLine("Neither build nor test. Skipping.");
       return;
@@ -112,7 +116,7 @@ try
             }
           };
 
-          var resultMessageJson = System.Text.Json.JsonSerializer.Serialize(resultMessage);
+          var resultMessageJson = JsonSerializer.Serialize(resultMessage);
 
           eventPublishService.PublishAsync(jobId + "_success", resultMessageJson).Wait();
         }
@@ -127,10 +131,13 @@ try
     process.BeginErrorReadLine();
     process.WaitForExit();
 
-    Directory.Delete(extractPath, true);
-    stream.Dispose();
     await objectStorageService.Delete(fileName);
-  });
+
+    Console.WriteLine("Job completed.");
+
+    // Stop the consumer after the job is completed
+    cancellationToken.Cancel();
+  }, cancellationToken.Token);
 }
 catch (Exception e)
 {

@@ -1,15 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Shared.Interfaces;
 
-[Route("ws")]
-public class WebSocketController : ControllerBase
-{
-  private readonly IEventSubscribeService _eventSubscribeService;
+namespace BuildJobApi.Controllers;
 
-  public WebSocketController(IEventSubscribeService eventSubscribeService)
-  {
-    _eventSubscribeService = eventSubscribeService;
-  }
+[Route("ws")]
+public class WebSocketController(IEventSubscribeService eventSubscribeService) : ControllerBase
+{
+  private readonly IEventSubscribeService _eventSubscribeService = eventSubscribeService;
 
   [HttpGet]
   [Route("{topic}")]

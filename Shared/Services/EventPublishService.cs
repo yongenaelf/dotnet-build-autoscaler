@@ -1,20 +1,24 @@
+
 using Confluent.Kafka;
 using Shared.Interfaces;
 
 namespace Shared.Services;
 
-public class EventPublishService : IEventPublishService
+public class EventPublishService(ProducerConfig producerConfig) : IEventPublishService
 {
-  private readonly IProducer<Null, string> _producer;
-  public EventPublishService(ProducerConfig producerConfig)
-  {
-    _producer = new ProducerBuilder<Null, string>(producerConfig).Build();
-  }
+  private readonly ProducerConfig _producerConfig = producerConfig;
+
   public async Task PublishAsync<T>(string topic, T message)
   {
-    var messageValue = System.Text.Json.JsonSerializer.Serialize(message);
-    await _producer.ProduceAsync(topic, new Message<Null, string> { Value = messageValue });
-    _producer.Flush(TimeSpan.FromSeconds(10));
-    _producer.Dispose();
+    var _producer = new ProducerBuilder<string, T>(_producerConfig).Build();
+
+    try
+    {
+      var deliveryResult = await _producer.ProduceAsync(topic, new Message<string, T> { Value = message });
+    }
+    catch (ProduceException<string, T> e)
+    {
+      Console.WriteLine($"Delivery failed: {e.Error.Reason}");
+    }
   }
 }

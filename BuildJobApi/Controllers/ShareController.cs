@@ -4,20 +4,15 @@ using Shared.Interfaces;
 namespace BuildJobApi.Controllers;
 
 [ApiController]
-public class ShareController : ControllerBase
+public class ShareController(IObjectStorageService objectStorageService) : ControllerBase
 {
-  private readonly IObjectStorageService _objectStorageService;
-
-  public ShareController(IObjectStorageService objectStorageService)
-  {
-    _objectStorageService = objectStorageService;
-  }
+  private readonly IObjectStorageService _objectStorageService = objectStorageService;
 
   [HttpGet]
-  [Route("share/{jobId}")]
-  public async Task<IActionResult> GetShare(string jobId)
+  [Route("share/{fileName}")]
+  public async Task<IActionResult> GetShare(string fileName)
   {
-    var file = await _objectStorageService.Get(jobId);
+    var file = await _objectStorageService.Get(fileName);
 
     if (file == null)
     {

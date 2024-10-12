@@ -10,7 +10,7 @@ spec:
         - name: builder
           image: builder # Replace with your consumer Docker image
           env:
-          - name: KAFKA_BROKER
+          - name: KAFKA_BOOTSTRAP_SERVERS
             value: kafka.default.svc.cluster.local:9092
           - name: KAFKA_TOPIC
             value: build_jobs

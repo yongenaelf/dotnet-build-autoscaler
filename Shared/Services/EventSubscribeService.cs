@@ -1,29 +1,32 @@
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 using Confluent.Kafka;
 using Shared.Interfaces;
 
 namespace Shared.Services;
 
-public class EventSubscribeService : IEventSubscribeService
+public class EventSubscribeService(ConsumerConfig consumerConfig) : IEventSubscribeService
 {
-  private readonly IConsumer<Ignore, string> _consumer;
+  private readonly IConsumer<string, string> _consumer = new ConsumerBuilder<string, string>(consumerConfig).Build();
 
-  public EventSubscribeService(ConsumerConfig consumerConfig)
-  {
-    _consumer = new ConsumerBuilder<Ignore, string>(consumerConfig).Build();
-  }
-  public async Task SubscribeAsync<T>(string topic, Func<T, Task> handler)
+  public async Task SubscribeAsync<T>(string topic, Func<T, Task> handler, CancellationToken cancellationToken)
   {
     _consumer.Subscribe(topic);
 
-    while (true)
+    while (!cancellationToken.IsCancellationRequested)
     {
-      var consumeResult = _consumer.Consume();
-      var message = System.Text.Json.JsonSerializer.Deserialize<T>(consumeResult.Message.Value);
-      if (message != null)
+      try
       {
-        await handler(message);
+        var consumeResult = _consumer.Consume(cancellationToken);
+        var value = consumeResult.Message.Value ?? throw new Exception("Value is null");
+
+        var message = JsonSerializer.Deserialize<T>(value);
+        await handler(message!);
+      }
+      catch (ConsumeException e)
+      {
+        Console.WriteLine($"Error occured: {e}");
       }
     }
   }
@@ -42,5 +45,10 @@ public class EventSubscribeService : IEventSubscribeService
         await webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, cancellationToken);
       }
     }
+  }
+
+  public void Dispose()
+  {
+    _consumer.Dispose();
   }
 }
