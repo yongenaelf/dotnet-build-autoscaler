@@ -5,6 +5,7 @@ using System.IO.Compression;
 using Shared.Models;
 using Shared.Services;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 #region ObjectStorageService configuration
 var awsAccessKeyId = Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY") ?? "minio";
@@ -98,8 +99,13 @@ try
 
       if (args.Data != null && args.Data.Contains(".dll.patched"))
       {
-        var patchedDllPath = Path.Combine(Path.GetDirectoryName(csprojFile) ?? "", args.Data.Trim());
-        if (File.Exists(patchedDllPath))
+        string pattern = @"Saving as (.+)$";
+        string input = args.Data.Trim();
+        var match = Regex.Match(input, pattern);
+
+        var patchedDllPath = match.Groups[1].Value;
+
+        if (patchedDllPath != null && File.Exists(patchedDllPath))
         {
           var patchedDllBytes = File.ReadAllBytes(patchedDllPath);
           var patchedDllBase64 = Convert.ToBase64String(patchedDllBytes);
