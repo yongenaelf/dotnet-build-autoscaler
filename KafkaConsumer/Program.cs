@@ -124,6 +124,7 @@ try
 
           var resultMessageJson = JsonSerializer.Serialize(resultMessage);
 
+          eventPublishService.PublishAsync(jobId + "_output", resultMessageJson).Wait();
           eventPublishService.PublishAsync(jobId + "_success", resultMessageJson).Wait();
         }
         else
