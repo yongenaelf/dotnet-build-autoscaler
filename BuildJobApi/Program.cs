@@ -1,19 +1,39 @@
 using Amazon.S3;
-using Amazon.S3.Model;
-using Amazon.S3.Transfer;
 using Confluent.Kafka;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using System.IO;
-using System;
-using System.Net.WebSockets;
-using System.Threading.Tasks;
+using Shared.Services;
+using Shared.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+#region ObjectStorageService configuration
+var awsAccessKeyId = Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY") ?? "minio";
+var awsSecretAccessKey = Environment.GetEnvironmentVariable("MINIO_SECRET_KEY") ?? "minio123";
+var clientConfig = new AmazonS3Config
+{
+    ServiceURL = Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ?? "http://localhost:9000",
+    ForcePathStyle = true
+};
+var bucketName = Environment.GetEnvironmentVariable("MINIO_BUCKET_NAME") ?? "job-requests";
+builder.Services.AddSingleton<IObjectStorageService>(new ObjectStorageService(awsAccessKeyId, awsSecretAccessKey, clientConfig, bucketName));
+#endregion
+
+#region Event Bus configuration
+var kafkaBootstrapServers = Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS") ?? "localhost:9093";
+var kafkaConfig = new ProducerConfig { BootstrapServers = kafkaBootstrapServers };
+builder.Services.AddSingleton<IEventPublishService>(new EventPublishService(kafkaConfig));
+
+var kafkaConsumerConfig = new ConsumerConfig
+{
+    GroupId = "websocket-consumer-group",
+    BootstrapServers = kafkaBootstrapServers,
+    AutoOffsetReset = AutoOffsetReset.Earliest
+};
+builder.Services.AddSingleton<IEventSubscribeService>(new EventSubscribeService(kafkaConsumerConfig));
+#endregion
 
 var app = builder.Build();
 
@@ -27,186 +47,14 @@ app.UseSwaggerUI();
 
 app.UseRouting();
 
-app.UseWebSockets();
+app.UseWebSockets(new WebSocketOptions()
+{
+    KeepAliveInterval = TimeSpan.FromMinutes(2)
+});
+
 app.UseStaticFiles();
 
-// Define the Kafka configuration
-var kafkaBootstrapServers = Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS") ?? "localhost:9092";
-var kafkaConfig = new ProducerConfig { BootstrapServers = kafkaBootstrapServers };
-
-// Configure AWS S3 client with MinIO settings
-var s3Client = new AmazonS3Client(
-    Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY") ?? "admin", // Access key
-    Environment.GetEnvironmentVariable("MINIO_SECRET_KEY") ?? "password", // Secret key
-    new AmazonS3Config
-    {
-        ServiceURL = Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ?? "http://localhost:9000", // MinIO server URL
-        ForcePathStyle = true // Use path style URLs
-    });
-
-var bucketName = Environment.GetEnvironmentVariable("MINIO_BUCKET_NAME") ?? "job-requests"; // The name of the bucket
-
-// Ensure the bucket exists or create it if it doesn't
-async Task EnsureBucketExistsAsync()
-{
-    try
-    {
-        var response = await s3Client.ListBucketsAsync();
-        if (!response.Buckets.Exists(b => b.BucketName == bucketName))
-        {
-            // Create bucket if it does not exist
-            await s3Client.PutBucketAsync(new PutBucketRequest
-            {
-                BucketName = bucketName
-            });
-        }
-    }
-    catch (AmazonS3Exception e)
-    {
-        Console.WriteLine($"Error accessing bucket {bucketName}: {e.Message}");
-    }
-}
-
-await EnsureBucketExistsAsync();
-
-// Define the endpoint for uploading files
-app.MapPost("/upload", async (IFormFile file, string? command = "build") =>
-{
-    if (file == null || file.Length == 0)
-    {
-        return Results.BadRequest("No file uploaded.");
-    }
-
-    // Generate a unique job ID
-    var jobId = Guid.NewGuid().ToString();
-
-    // Construct a new file name using the job ID and the .zip extension
-    var fileExtension = Path.GetExtension(file.FileName);
-    var newFileName = $"{jobId}{fileExtension}";
-
-    // Construct the file path in MinIO
-    var filePath = $"{bucketName}/{newFileName}";
-
-    try
-    {
-        // Upload file to MinIO
-        using (var stream = file.OpenReadStream())
-        {
-            var uploadRequest = new TransferUtilityUploadRequest
-            {
-                InputStream = stream,
-                Key = newFileName,
-                BucketName = bucketName,
-                ContentType = file.ContentType
-            };
-
-            var fileTransferUtility = new TransferUtility(s3Client);
-            await fileTransferUtility.UploadAsync(uploadRequest);
-        }
-
-        if (command == "share")
-        {
-            return Results.Ok(new { Message = "File uploaded successfully", JobId = jobId, FilePath = filePath });
-        }
-
-        // Send a Kafka message with the filename
-        using (var producer = new ProducerBuilder<Null, string>(kafkaConfig).Build())
-        {
-            var topic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";  // Define your Kafka topic
-            var message = $"File uploaded: {newFileName}";
-
-            var messageWithMetadata = new KafkaMessage
-            {
-                Message = message,
-                Metadata = new KafkaMetadata
-                {
-                    JobId = jobId,
-                    FileName = newFileName,
-                    UploadTime = DateTime.UtcNow,
-                    Command = command ?? "build"
-                }
-            };
-
-            var messageValue = System.Text.Json.JsonSerializer.Serialize(messageWithMetadata);
-
-            await producer.ProduceAsync(topic, new Message<Null, string> { Value = messageValue });
-            // Use synchronous Flush to ensure delivery
-            producer.Flush(TimeSpan.FromSeconds(10));
-        }
-
-        return Results.Ok(new { Message = "File uploaded successfully", JobId = jobId, FilePath = filePath });
-    }
-    catch (Exception ex)
-    {
-        // Return an object result with error message and status code
-        return Results.Problem(detail: ex.Message, statusCode: 500, title: "Internal Server Error");
-    }
-}).DisableAntiforgery();
-
-app.MapGet("/share/{jobId}", async (string jobId) =>
-{
-    var getObjectRequest = new GetObjectRequest
-    {
-        BucketName = bucketName,
-        Key = $"{jobId}.zip"
-    };
-
-    try
-    {
-        var getObjectResponse = await s3Client.GetObjectAsync(getObjectRequest);
-
-        return Results.File(getObjectResponse.ResponseStream, getObjectResponse.Headers.ContentType, $"{jobId}.zip");
-    }
-    catch (AmazonS3Exception e)
-    {
-        return Results.Problem(detail: e.Message, statusCode: 404, title: "File not found");
-    }
-});
-
-app.MapGet("/ws/{topic}", async (HttpContext context, string topic) =>
-{
-    if (context.WebSockets.IsWebSocketRequest)
-    {
-        var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        var kafkaConsumerConfig = new ConsumerConfig
-        {
-            GroupId = "websocket-consumer-group",
-            BootstrapServers = kafkaBootstrapServers,
-            AutoOffsetReset = AutoOffsetReset.Earliest
-        };
-
-        using (var consumer = new ConsumerBuilder<Ignore, string>(kafkaConsumerConfig).Build())
-        {
-            consumer.Subscribe(topic);
-
-            try
-            {
-                while (webSocket.State == WebSocketState.Open)
-                {
-                    var consumeResult = consumer.Consume();
-                    var message = consumeResult.Message.Value;
-
-                    var buffer = System.Text.Encoding.UTF8.GetBytes(message);
-                    var segment = new ArraySegment<byte>(buffer);
-
-                    await webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Handle cancellation
-            }
-            finally
-            {
-                consumer.Close();
-            }
-        }
-    }
-    else
-    {
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
-    }
-});
+app.MapControllers();
 
 app.MapGet("/", async context =>
 {
@@ -215,17 +63,3 @@ app.MapGet("/", async context =>
 });
 
 app.Run();
-
-public class KafkaMessage
-{
-    public string Message { get; set; }
-    public KafkaMetadata Metadata { get; set; }
-}
-
-public class KafkaMetadata
-{
-    public string JobId { get; set; }
-    public string FileName { get; set; }
-    public DateTime UploadTime { get; set; }
-    public string Command { get; set; }
-}

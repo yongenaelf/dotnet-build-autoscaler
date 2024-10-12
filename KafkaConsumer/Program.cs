@@ -1,183 +1,138 @@
 ﻿using Amazon.S3;
-using Amazon.S3.Model;
-using Amazon.S3.Transfer;
 using Confluent.Kafka;
-using System;
 using System.Diagnostics;
-using System.IO;
 using System.IO.Compression;
-using System.Linq;
+using Shared.Models;
+using Shared.Services;
 
-class Program
+#region ObjectStorageService configuration
+var awsAccessKeyId = Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY") ?? "minio";
+var awsSecretAccessKey = Environment.GetEnvironmentVariable("MINIO_SECRET_KEY") ?? "minio123";
+var clientConfig = new AmazonS3Config
 {
-  public static void Main(string[] args)
+  ServiceURL = Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ?? "http://localhost:9000",
+  ForcePathStyle = true
+};
+var bucketName = Environment.GetEnvironmentVariable("MINIO_BUCKET_NAME") ?? "job-requests";
+var objectStorageService = new ObjectStorageService(awsAccessKeyId, awsSecretAccessKey, clientConfig, bucketName);
+#endregion
+
+#region Event Bus configuration
+var kafkaBootstrapServers = Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS") ?? "localhost:9093";
+var kafkaConfig = new ProducerConfig { BootstrapServers = kafkaBootstrapServers };
+var eventPublishService = new EventPublishService(kafkaConfig);
+
+var kafkaConsumerConfig = new ConsumerConfig
+{
+  GroupId = "build-consumer-group",
+  BootstrapServers = kafkaBootstrapServers,
+  AutoOffsetReset = AutoOffsetReset.Earliest
+};
+var eventSubscribeService = new EventSubscribeService(kafkaConsumerConfig);
+#endregion
+
+var kafkaTopic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
+
+try
+{
+  await eventSubscribeService.SubscribeAsync<KafkaMessage>(kafkaTopic, async message =>
   {
-    // Configure AWS S3 client with MinIO settings
-    var s3Client = new AmazonS3Client(
-        Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY") ?? "admin", // Access key
-        Environment.GetEnvironmentVariable("MINIO_SECRET_KEY") ?? "password", // Secret key
-        new AmazonS3Config
-        {
-          ServiceURL = Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ?? "http://localhost:9000", // MinIO server URL
-          ForcePathStyle = true // Use path style URLs
-        });
+    var jobId = message.Metadata.JobId;
+    var fileName = message.Metadata.FileName;
+    var command = message.Metadata.Command;
 
-    var bucketName = Environment.GetEnvironmentVariable("MINIO_BUCKET_NAME") ?? "job-requests"; // The name of the bucket
-
-    var kafkaBroker = Environment.GetEnvironmentVariable("KAFKA_BROKER") ?? "kafka:9092";
-    var kafkaConsumerGroup = Environment.GetEnvironmentVariable("KAFKA_CONSUMER_GROUP") ?? "build-consumer-group";
-    var config = new ConsumerConfig
+    if (command != "build" || command != "test")
     {
-      BootstrapServers = kafkaBroker,
-      GroupId = kafkaConsumerGroup,
-      AutoOffsetReset = AutoOffsetReset.Earliest
+      Console.WriteLine("Neither build nor test. Skipping.");
+      return;
+    }
+
+    var stream = await objectStorageService.Get(fileName);
+
+    if (stream == null)
+    {
+      Console.WriteLine("File not found.");
+      return;
+    }
+
+    var archive = new ZipArchive(stream);
+
+    var extractPath = Path.Combine(Path.GetTempPath(), jobId);
+    ZipFileExtensions.ExtractToDirectory(archive, extractPath);
+
+    var extension = command == "test" ? ".Tests.csproj" : ".csproj";
+
+    var csprojFile = Directory.GetFiles(extractPath, $"*{extension}", SearchOption.AllDirectories).FirstOrDefault();
+
+    if (csprojFile == null)
+    {
+      Console.WriteLine($"No {extension} file found in the extracted archive.");
+      return;
+    }
+
+    var processInfo = new ProcessStartInfo("dotnet", $"{command} \"{csprojFile}\"")
+    {
+      RedirectStandardOutput = true,
+      RedirectStandardError = true,
+      UseShellExecute = false,
+      CreateNoWindow = true
     };
 
-    using var consumer = new ConsumerBuilder<Ignore, string>(config).Build();
+    var process = Process.Start(processInfo);
 
-    var kafkaTopic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
-    consumer.Subscribe(kafkaTopic);
-
-    var producerConfig = new ProducerConfig { BootstrapServers = kafkaBroker };
-    using var producer = new ProducerBuilder<Null, string>(producerConfig).Build();
-
-    try
+    if (process == null)
     {
-      while (true)
+      Console.WriteLine("Failed to start the process.");
+      return;
+    }
+
+    process.OutputDataReceived += (sender, args) =>
+    {
+      Console.WriteLine(args.Data);
+
+      eventPublishService.PublishAsync(jobId + "_output", args.Data).Wait();
+
+      if (args.Data != null && args.Data.Contains(".dll.patched"))
       {
-        var cr = consumer.Consume();
-        Console.WriteLine($"Consumed message '{cr.Message.Value}' at: '{cr.TopicPartitionOffset}'.");
-
-        var messageValue = System.Text.Json.JsonSerializer.Deserialize<KafkaMessage>(cr.Message.Value);
-
-        var jobId = messageValue.Metadata.JobId;
-        var fileName = messageValue.Metadata.FileName;
-        var command = messageValue.Metadata.Command;
-
-        // get the file from minio
-        var getObjectRequest = new GetObjectRequest
+        var patchedDllPath = Path.Combine(Path.GetDirectoryName(csprojFile) ?? "", args.Data.Trim());
+        if (File.Exists(patchedDllPath))
         {
-          BucketName = bucketName,
-          Key = fileName
-        };
+          var patchedDllBytes = File.ReadAllBytes(patchedDllPath);
+          var patchedDllBase64 = Convert.ToBase64String(patchedDllBytes);
 
-        var getObjectResponse = s3Client.GetObjectAsync(getObjectRequest).Result;
-
-        // Process the file
-        using (var stream = getObjectResponse.ResponseStream)
-        {
-          using (var archive = new System.IO.Compression.ZipArchive(stream))
+          var resultMessage = new KafkaMessage
           {
-            var extractPath = Path.Combine(Path.GetTempPath(), jobId);
-            ZipFileExtensions.ExtractToDirectory(archive, extractPath);
-
-            var csprojFile = Directory.GetFiles(extractPath, "*.csproj", SearchOption.AllDirectories).FirstOrDefault();
-
-            if (command == "test")
+            Message = patchedDllBase64,
+            Metadata = new KafkaMetadata
             {
-              var csprojTestFile = Directory.GetFiles(extractPath, "*.Tests.csproj", SearchOption.AllDirectories).FirstOrDefault();
-
-              if (csprojTestFile != null)
-              {
-                csprojFile = csprojTestFile;
-              }
-              else
-              {
-                csprojFile = null;
-                Console.WriteLine("No .Tests.csproj file found in the extracted archive.");
-              }
+              JobId = jobId,
+              FileName = fileName,
+              UploadTime = DateTime.UtcNow,
+              Command = command
             }
-
-            if (csprojFile != null)
-            {
-              var processInfo = new ProcessStartInfo("dotnet", $"{command} \"{csprojFile}\"")
-              {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-              };
-
-              using (var process = Process.Start(processInfo))
-              {
-                process.OutputDataReceived += (sender, args) =>
-                {
-                  Console.WriteLine(args.Data);
-
-                  producer.Produce(jobId + "_output", new Message<Null, string> { Value = args.Data });
-
-                  if (args.Data != null && args.Data.Contains(".dll.patched"))
-                  {
-                    var patchedDllPath = Path.Combine(Path.GetDirectoryName(csprojFile), args.Data.Trim());
-                    if (File.Exists(patchedDllPath))
-                    {
-                      var patchedDllBytes = File.ReadAllBytes(patchedDllPath);
-                      var patchedDllBase64 = Convert.ToBase64String(patchedDllBytes);
-
-                      var resultMessage = new KafkaMessage
-                      {
-                        Message = patchedDllBase64,
-                        Metadata = new KafkaMetadata
-                        {
-                          JobId = jobId,
-                          FileName = fileName,
-                          UploadTime = DateTime.UtcNow,
-                          Command = command
-                        }
-                      };
-
-                      var resultMessageJson = System.Text.Json.JsonSerializer.Serialize(resultMessage);
-                      producer.Produce(jobId + "_success", new Message<Null, string> { Value = resultMessageJson });
-                    }
-                    else
-                    {
-                      Console.WriteLine("Patched DLL not found.");
-                    }
-                  }
-                };
-                process.ErrorDataReceived += (sender, args) => Console.WriteLine(args.Data);
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-                process.WaitForExit();
-              }
-            }
-            else
-            {
-              Console.WriteLine("No .csproj file found in the extracted archive.");
-            }
-          }
-        }
-
-        if (command != "share") {
-          // Delete the file from MinIO
-          var deleteObjectRequest = new DeleteObjectRequest
-          {
-            BucketName = bucketName,
-            Key = fileName
           };
 
-          s3Client.DeleteObjectAsync(deleteObjectRequest).Wait();
+          var resultMessageJson = System.Text.Json.JsonSerializer.Serialize(resultMessage);
+
+          eventPublishService.PublishAsync(jobId + "_success", resultMessageJson).Wait();
+        }
+        else
+        {
+          Console.WriteLine("Patched DLL not found.");
         }
       }
-    }
-    catch (Exception e)
-    {
-      Console.WriteLine($"Error: {e.Message}");
-      consumer.Close();
-    }
-  }
-}
+    };
+    process.ErrorDataReceived += (sender, args) => Console.WriteLine(args.Data);
+    process.BeginOutputReadLine();
+    process.BeginErrorReadLine();
+    process.WaitForExit();
 
-public class KafkaMessage
-{
-  public string Message { get; set; }
-  public KafkaMetadata Metadata { get; set; }
+    Directory.Delete(extractPath, true);
+    stream.Dispose();
+    await objectStorageService.Delete(fileName);
+  });
 }
-
-public class KafkaMetadata
+catch (Exception e)
 {
-  public string JobId { get; set; }
-  public string FileName { get; set; }
-  public DateTime UploadTime { get; set; }
-  public string Command { get; set; }
+  Console.WriteLine(e.Message);
 }
