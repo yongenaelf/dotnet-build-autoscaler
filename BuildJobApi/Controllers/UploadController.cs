@@ -12,11 +12,11 @@ public class UploadController : ControllerBase
   private readonly IEventPublishService _eventPublishService;
   private readonly string _topic;
 
-  public UploadController(IObjectStorageService objectStorageService, IEventPublishService eventPublishService, string topic)
+  public UploadController(IObjectStorageService objectStorageService, IEventPublishService eventPublishService)
   {
     _objectStorageService = objectStorageService;
     _eventPublishService = eventPublishService;
-    _topic = topic;
+    _topic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? throw new ArgumentNullException("KAFKA_TOPIC");
   }
 
   [HttpPost]
