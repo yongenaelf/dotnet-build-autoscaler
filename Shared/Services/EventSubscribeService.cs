@@ -10,7 +10,7 @@ public class EventSubscribeService(ConsumerConfig consumerConfig) : IEventSubscr
 {
   private readonly IConsumer<string, string> _consumer = new ConsumerBuilder<string, string>(consumerConfig).Build();
 
-  public async Task SubscribeAsync<T>(string topic, Func<T, Task> handler, CancellationToken cancellationToken)
+  public async Task SubscribeAsync<T>(string topic, Func<T?, Task> handler, CancellationToken cancellationToken)
   {
     _consumer.Subscribe(topic);
 
@@ -19,14 +19,21 @@ public class EventSubscribeService(ConsumerConfig consumerConfig) : IEventSubscr
       try
       {
         var consumeResult = _consumer.Consume(cancellationToken);
+        Console.WriteLine($"Consumed message '{consumeResult.Message.Value}' at: '{consumeResult.TopicPartitionOffset}'.");
         var value = consumeResult.Message.Value ?? throw new Exception("Value is null");
 
-        var message = JsonSerializer.Deserialize<T>(value);
-        await handler(message!);
+        T? message;
+        message = JsonSerializer.Deserialize<T>(value);
+        await handler(message);
       }
       catch (ConsumeException e)
       {
         Console.WriteLine($"Error occured: {e}");
+      }
+      catch (JsonException e)
+      {
+        Console.WriteLine($"Error occured: {e}");
+        await handler(default);
       }
     }
   }
@@ -50,5 +57,10 @@ public class EventSubscribeService(ConsumerConfig consumerConfig) : IEventSubscr
   public void Dispose()
   {
     _consumer.Dispose();
+  }
+
+  public IConsumer<string, string> GetConsumer()
+  {
+    return _consumer;
   }
 }

@@ -2,12 +2,16 @@ using Amazon.S3;
 using Confluent.Kafka;
 using Shared.Services;
 using Shared.Interfaces;
+using BuildJobApi.Hubs;
+using BuildJobApi.Services;
+using BuildJobApi.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSignalR();
 
 #region ObjectStorageService configuration
 var awsAccessKeyId = Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY") ?? "minio";
@@ -22,7 +26,7 @@ builder.Services.AddSingleton<IObjectStorageService>(new ObjectStorageService(aw
 #endregion
 
 #region Event Bus configuration
-var kafkaBootstrapServers = Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS") ?? "localhost:9093";
+var kafkaBootstrapServers = Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS") ?? "localhost:9092";
 var kafkaConfig = new ProducerConfig { BootstrapServers = kafkaBootstrapServers };
 builder.Services.AddSingleton<IEventPublishService>(new EventPublishService(kafkaConfig));
 
@@ -30,18 +34,21 @@ var kafkaConsumerConfig = new ConsumerConfig
 {
     GroupId = "websocket-consumer-group",
     BootstrapServers = kafkaBootstrapServers,
-    AutoOffsetReset = AutoOffsetReset.Earliest
+    AutoOffsetReset = AutoOffsetReset.Latest
 };
 builder.Services.AddSingleton<IEventSubscribeService>(new EventSubscribeService(kafkaConsumerConfig));
 #endregion
 
 builder.Services.AddSingleton<IVirusScanService>(new VirusScanService(Environment.GetEnvironmentVariable("CLAMAV_CONNECTION_STRING") ?? "tcp://127.0.0.1:3310"));
+builder.Services.AddSingleton<IHubCallerService, HubCallerService>();
+builder.Services.AddHostedService<BuildOutputBackgroundService>();
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
+    app.UseHttpsRedirection();
 }
 
 app.UseSwagger();
@@ -63,5 +70,7 @@ app.MapGet("/", async context =>
     context.Response.ContentType = "text/html";
     await context.Response.SendFileAsync("wwwroot/index.html");
 });
+
+app.MapHub<BuildOutputHub>("/buildOutputHub");
 
 app.Run();

@@ -2,6 +2,30 @@
 
 ## Development
 
+### Using docker compose
+
+First, install Docker and Docker Compose.
+
+Then, run:
+
+```bash
+docker compose up -d
+```
+
+In a separate terminal, run:
+
+```bash
+dotnet watch --project BuildJobApi -lp https
+```
+
+In a separate terminal, run:
+
+```bash
+dotnet watch --project KafkaConsumer
+```
+
+### Simulating a Kubernetes cluster
+
 First, install Skaffold:
 
 ```bash
@@ -11,7 +35,7 @@ brew install skaffold
 Then, run:
 
 ```bash
-kubectl config use-context docker-desktop 
+kubectl config use-context docker-desktop
 skaffold dev --port-forward
 ```
 

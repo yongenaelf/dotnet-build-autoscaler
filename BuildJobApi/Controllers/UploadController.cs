@@ -1,4 +1,4 @@
-
+using BuildJobApi.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Interfaces;
 using Shared.Models;
@@ -6,11 +6,8 @@ using Shared.Models;
 namespace BuildJobApi.Controllers;
 
 [ApiController]
-public class UploadController(IObjectStorageService objectStorageService, IEventPublishService eventPublishService, IVirusScanService virusScanService) : ControllerBase
+public class UploadController(IObjectStorageService objectStorageService, IEventPublishService eventPublishService, IVirusScanService virusScanService, IHubCallerService hubCallerService) : ControllerBase
 {
-  private readonly IObjectStorageService _objectStorageService = objectStorageService;
-  private readonly IEventPublishService _eventPublishService = eventPublishService;
-  private readonly IVirusScanService _virusScanService = virusScanService;
   private readonly string _topic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
 
   [HttpPost]
@@ -33,9 +30,13 @@ public class UploadController(IObjectStorageService objectStorageService, IEvent
     {
       using var stream = file.OpenReadStream();
 
-      await _virusScanService.ScanAsync(stream);
+      // Scan the file for viruses on production
+      if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production")
+      {
+        await virusScanService.ScanAsync(stream);
+      }
 
-      await _objectStorageService.Put(newFileName, file.ContentType, stream);
+      await objectStorageService.Put(newFileName, file.ContentType, stream);
 
       var message = $"File uploaded: {newFileName}";
 
@@ -56,14 +57,14 @@ public class UploadController(IObjectStorageService objectStorageService, IEvent
         }
       };
 
-      var messageValue = System.Text.Json.JsonSerializer.Serialize(messageWithMetadata);
-
-      await _eventPublishService.PublishAsync(_topic, messageValue);
+      await eventPublishService.PublishAsync(_topic, messageWithMetadata);
+      await hubCallerService.SendMessage(message);
 
       return Ok(new { Message = "File uploaded successfully", JobId = jobId, FilePath = newFileName });
     }
     catch (Exception e)
     {
+      Console.WriteLine(e);
       return StatusCode(500, e.Message);
     }
   }

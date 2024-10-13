@@ -1,4 +1,5 @@
 
+using System.Text.Json;
 using Confluent.Kafka;
 using Shared.Interfaces;
 
@@ -10,11 +11,12 @@ public class EventPublishService(ProducerConfig producerConfig) : IEventPublishS
 
   public async Task PublishAsync<T>(string topic, T message)
   {
-    var _producer = new ProducerBuilder<string, T>(_producerConfig).Build();
+    var serializedMessage = JsonSerializer.Serialize(message);
+    var _producer = new ProducerBuilder<string, string>(_producerConfig).Build();
 
     try
     {
-      var deliveryResult = await _producer.ProduceAsync(topic, new Message<string, T> { Value = message });
+      var deliveryResult = await _producer.ProduceAsync(topic, new Message<string, string> { Value = serializedMessage });
     }
     catch (ProduceException<string, T> e)
     {
