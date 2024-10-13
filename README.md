@@ -27,3 +27,9 @@ dotnet watch --project KafkaConsumer
 ### Clean up
 
 After you are done, you can stop with `Ctrl+C`.
+
+To remove docker containers, run:
+
+```bash
+docker compose down
+```
