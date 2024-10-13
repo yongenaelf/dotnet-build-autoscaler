@@ -34,6 +34,7 @@ var eventSubscribeService = new EventSubscribeService(kafkaConsumerConfig);
 #endregion
 
 var kafkaTopic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
+var kafkaOutputTopic = Environment.GetEnvironmentVariable("KAFKA_OUTPUT_TOPIC") ?? "build_jobs_output";
 var cancellationToken = new CancellationTokenSource();
 
 try
@@ -93,26 +94,47 @@ try
 
     process.OutputDataReceived += (sender, args) =>
     {
-      Console.WriteLine(args.Data);
-
-      eventPublishService.PublishAsync(jobId + "_output", args.Data).Wait();
-
-      if (args.Data != null && args.Data.Contains(".dll.patched"))
+      if (args.Data != null)
       {
-        string pattern = @"Saving as (.+)$";
-        string input = args.Data.Trim();
-        var match = Regex.Match(input, pattern);
+        var serializedMessage = "";
 
-        var patchedDllPath = match.Groups[1].Value;
-
-        if (patchedDllPath != null && File.Exists(patchedDllPath))
+        if (args.Data.Contains(".dll.patched"))
         {
-          var patchedDllBytes = File.ReadAllBytes(patchedDllPath);
-          var patchedDllBase64 = Convert.ToBase64String(patchedDllBytes);
+          string pattern = @"Saving as (.+)$";
+          string input = args.Data.Trim();
+          var match = Regex.Match(input, pattern);
 
+          var patchedDllPath = match.Groups[1].Value;
+
+          if (patchedDllPath != null && File.Exists(patchedDllPath))
+          {
+            var patchedDllBytes = File.ReadAllBytes(patchedDllPath);
+            var patchedDllBase64 = Convert.ToBase64String(patchedDllBytes);
+
+            var resultMessage = new KafkaMessage
+            {
+              Message = patchedDllBase64,
+              Metadata = new KafkaMetadata
+              {
+                JobId = jobId,
+                FileName = fileName,
+                UploadTime = DateTime.UtcNow,
+                Command = command
+              }
+            };
+
+            serializedMessage = JsonSerializer.Serialize(resultMessage);
+          }
+          else
+          {
+            Console.WriteLine("Patched DLL not found.");
+          }
+        }
+        else
+        {
           var resultMessage = new KafkaMessage
           {
-            Message = patchedDllBase64,
+            Message = args.Data,
             Metadata = new KafkaMetadata
             {
               JobId = jobId,
@@ -122,15 +144,10 @@ try
             }
           };
 
-          var resultMessageJson = JsonSerializer.Serialize(resultMessage);
+          serializedMessage = JsonSerializer.Serialize(resultMessage);
+        }
 
-          eventPublishService.PublishAsync(jobId + "_output", resultMessageJson).Wait();
-          eventPublishService.PublishAsync(jobId + "_success", resultMessageJson).Wait();
-        }
-        else
-        {
-          Console.WriteLine("Patched DLL not found.");
-        }
+        eventPublishService.PublishAsync(kafkaOutputTopic, serializedMessage).Wait();
       }
     };
     process.ErrorDataReceived += (sender, args) => Console.WriteLine(args.Data);

@@ -34,7 +34,7 @@
     </div>
     <div>
         <label for="connectionUrl">WebSocket Server URL:</label>
-        <input id="connectionUrl" readonly />
+        <input id="connectionUrl" />
         <button id="connectButton" type="submit">Connect</button>
     </div>
     <p></p>
@@ -68,7 +68,7 @@
         var scheme = document.location.protocol === "https:" ? "wss" : "ws";
         var port = document.location.port ? (":" + document.location.port) : "";
 
-        connectionUrl.value = scheme + "://" + document.location.hostname + port + "/ws" ;
+        connectionUrl.value = scheme + "://" + document.location.hostname + port + "/ws/build_jobs_output" ;
 
         function updateState() {
             function disable() {
@@ -168,11 +168,6 @@
                 return response.json();
             }).then(data => {
                 console.log(data);
-                var jobId = data.jobId;
-                connectionUrl.value = scheme + "://" + document.location.hostname + port + "/ws/" + jobId + "_output";
-                setTimeout(() => {
-                    connectButton.click();
-                }, 2000);
             }).catch(error => {
                 console.error('There has been a problem with your fetch operation:', error);
             });
