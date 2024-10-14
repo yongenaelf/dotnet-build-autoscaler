@@ -76,7 +76,7 @@ public class BuildService(IHubCallerService hubCallerService, IObjectStorageServ
         {
           Console.WriteLine(args.Data);
 
-          if (args.Data.Contains(".dll"))
+          if (args.Data.Contains("succeeded"))
           {
             // Search for a file with extension .dll.patched in the extracted folder
             var patchedDllPath = Directory.GetFiles(extractPath, "*.dll.patched", SearchOption.AllDirectories).FirstOrDefault();
