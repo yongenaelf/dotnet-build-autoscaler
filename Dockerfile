@@ -1,7 +1,6 @@
 ARG DOTNET_6=6.0.410
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_6} AS base-env
 WORKDIR /app
-COPY --from=mcr.microsoft.com/dotnet/sdk:8.0 /usr/share/dotnet/shared /usr/share/dotnet/shared
 COPY out .
-EXPOSE 80
-ENTRYPOINT ["dotnet", "BuildJobApi.dll"]
+EXPOSE 5000
+CMD ["/app/BuildJobApi"]
