@@ -78,18 +78,13 @@ public class BuildService(IHubCallerService hubCallerService, IObjectStorageServ
 
           if (args.Data.Contains(".dll"))
           {
-            string pattern = @"Saving as (.+)$";
-            string input = args.Data.Trim();
-            var match = Regex.Match(input, pattern);
+            // Search for a file with extension .dll.patched in the extracted folder
+            var patchedDllPath = Directory.GetFiles(extractPath, "*.dll.patched", SearchOption.AllDirectories).FirstOrDefault();
 
-            var dllPath = match.Groups[1].Value;
-
-            if (dllPath != null && File.Exists(dllPath))
+            if (patchedDllPath != null)
             {
-              var dllBytes = File.ReadAllBytes(dllPath);
+              var dllBytes = File.ReadAllBytes(patchedDllPath);
               var dllBase64 = Convert.ToBase64String(dllBytes);
-
-
               hubCallerService.SendMessageToUser(connectionId, $"DLL: {dllBase64}");
             }
             else
