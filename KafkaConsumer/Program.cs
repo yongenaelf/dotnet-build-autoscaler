@@ -32,8 +32,8 @@ var kafkaConsumerConfig = new ConsumerConfig
 var eventSubscribeService = new EventSubscribeService(kafkaConsumerConfig);
 #endregion
 
-var kafkaTopic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
-var kafkaOutputTopic = Environment.GetEnvironmentVariable("KAFKA_OUTPUT_TOPIC") ?? "build_jobs_output";
+var kafkaTopic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build-jobs";
+var kafkaOutputTopic = Environment.GetEnvironmentVariable("KAFKA_OUTPUT_TOPIC") ?? "build-jobs-output";
 var cancellationToken = new CancellationTokenSource();
 
 try

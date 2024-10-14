@@ -9,7 +9,7 @@ public sealed class BuildOutputBackgroundService(IEventSubscribeService eventSub
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await Task.Yield();
-        await eventSubscribeService.SubscribeAsync<KafkaMessage>("build_jobs_output", async (message) =>
+        await eventSubscribeService.SubscribeAsync<KafkaMessage>(Environment.GetEnvironmentVariable("KAFKA_OUTPUT_TOPIC") ?? "build-jobs-output", async (message) =>
         {
             var jobId = message?.Metadata.JobId;
             if (jobId != null)

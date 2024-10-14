@@ -8,7 +8,7 @@ namespace BuildJobApi.Controllers;
 [ApiController]
 public class UploadController(IObjectStorageService objectStorageService, IEventPublishService eventPublishService, IVirusScanService virusScanService, IHubCallerService hubCallerService) : ControllerBase
 {
-  private readonly string _topic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build_jobs";
+  private readonly string _topic = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "build-jobs";
 
   [HttpPost]
   [Route("upload")]
