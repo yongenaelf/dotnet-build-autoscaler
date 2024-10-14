@@ -76,25 +76,25 @@ public class BuildService(IHubCallerService hubCallerService, IObjectStorageServ
         {
           Console.WriteLine(args.Data);
 
-          if (args.Data.Contains(".dll.patched"))
+          if (args.Data.Contains(".dll"))
           {
             string pattern = @"Saving as (.+)$";
             string input = args.Data.Trim();
             var match = Regex.Match(input, pattern);
 
-            var patchedDllPath = match.Groups[1].Value;
+            var dllPath = match.Groups[1].Value;
 
-            if (patchedDllPath != null && File.Exists(patchedDllPath))
+            if (dllPath != null && File.Exists(dllPath))
             {
-              var patchedDllBytes = File.ReadAllBytes(patchedDllPath);
-              var patchedDllBase64 = Convert.ToBase64String(patchedDllBytes);
+              var dllBytes = File.ReadAllBytes(dllPath);
+              var dllBase64 = Convert.ToBase64String(dllBytes);
 
 
-              hubCallerService.SendMessageToUser(connectionId, $"Patched DLL: {patchedDllBase64}");
+              hubCallerService.SendMessageToUser(connectionId, $"DLL: {dllBase64}");
             }
             else
             {
-              Console.WriteLine("Patched DLL not found.");
+              Console.WriteLine("DLL not found.");
             }
           }
           else
