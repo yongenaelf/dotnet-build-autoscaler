@@ -2,5 +2,5 @@ namespace BuildJobApi.Interfaces;
 
 public interface IHubCallerService
 {
-  Task SendMessage(string message);
+  Task SendMessageToGroup(string group, string message);
 }

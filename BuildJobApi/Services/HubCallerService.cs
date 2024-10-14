@@ -7,8 +7,8 @@ namespace BuildJobApi.Services;
 public class HubCallerService(IHubContext<BuildOutputHub> buildOutputHubContext) : IHubCallerService
 {
 
-  public async Task SendMessage(string message)
+  public async Task SendMessageToGroup(string group, string message)
   {
-    await buildOutputHubContext.Clients.All.SendAsync("ReceiveMessage", message);
+    await buildOutputHubContext.Clients.Group(group).SendAsync("ReceiveMessage", message);
   }
 }

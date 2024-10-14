@@ -58,7 +58,7 @@ public class UploadController(IObjectStorageService objectStorageService, IEvent
       };
 
       await eventPublishService.PublishAsync(_topic, messageWithMetadata);
-      await hubCallerService.SendMessage(message);
+      await hubCallerService.SendMessageToGroup(jobId, message);
 
       return Ok(new { Message = "File uploaded successfully", JobId = jobId, FilePath = newFileName });
     }

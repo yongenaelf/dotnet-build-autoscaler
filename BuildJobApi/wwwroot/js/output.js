@@ -4,9 +4,6 @@ var connection = new signalR.HubConnectionBuilder()
   .withUrl("/buildOutputHub")
   .build();
 
-//Disable the send button until connection is established.
-document.getElementById("sendButton").disabled = true;
-
 connection.on("ReceiveMessage", function (message) {
   var li = document.createElement("li");
   document.getElementById("messagesList").appendChild(li);
@@ -23,16 +20,6 @@ connection
   })
   .catch(function (err) {
     return console.error(err.toString());
-  });
-
-document
-  .getElementById("sendButton")
-  .addEventListener("click", function (event) {
-    var message = document.getElementById("messageInput").value;
-    connection.invoke("SendMessage", message).catch(function (err) {
-      return console.error(err.toString());
-    });
-    event.preventDefault();
   });
 
 Array.from(document.getElementsByTagName("button")).forEach(function (button) {
@@ -65,6 +52,9 @@ Array.from(document.getElementsByTagName("button")).forEach(function (button) {
       })
       .then((data) => {
         console.log(data);
+        connection.invoke("AddToGroup", data.JobId).catch(function (err) {
+          return console.error(err.toString());
+        });
       })
       .catch((error) => {
         console.error(

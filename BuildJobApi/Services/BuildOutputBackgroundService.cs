@@ -11,7 +11,7 @@ public sealed class BuildOutputBackgroundService(IEventSubscribeService eventSub
         await Task.Yield();
         await eventSubscribeService.SubscribeAsync<KafkaMessage>("build_jobs_output", async (message) =>
         {
-            await hubCallerService.SendMessage(message?.Message ?? "Message is null");
+            await hubCallerService.SendMessageToGroup(message.Metadata.JobId, message?.Message ?? "Message is null");
         }, stoppingToken);
     }
 }
