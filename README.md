@@ -2,6 +2,10 @@
 
 ## Development
 
+> [!TIP]
+> If you are using VS Code, you can press `F1` and type `Tasks: Run Task` to see the available tasks.
+> "Run all services in watch mode" will start docker compose, then start all services in watch mode.
+
 ### Using docker compose
 
 First, install Docker and Docker Compose.

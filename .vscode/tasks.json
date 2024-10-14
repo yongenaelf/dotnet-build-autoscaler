@@ -1,0 +1,52 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Docker Compose Up",
+      "type": "shell",
+      "command": "docker compose up -d",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "group": "default"
+      }
+    },
+    {
+      "label": "Start BuildJobApi in watch mode",
+      "type": "shell",
+      "command": "dotnet watch --project BuildJobApi -lp https",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": ["Docker Compose Up"],
+      "presentation": {
+        "group": "default"
+      }
+    },
+    {
+      "label": "Start KafkaConsumer in watch mode",
+      "type": "shell",
+      "command": "dotnet watch --project KafkaConsumer",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": ["Docker Compose Up"],
+      "presentation": {
+        "group": "default"
+      }
+    },
+    {
+      "label": "Start all services in watch mode",
+      "dependsOn": [
+        "Start BuildJobApi in watch mode",
+        "Start KafkaConsumer in watch mode"
+      ]
+    }
+  ]
+}
