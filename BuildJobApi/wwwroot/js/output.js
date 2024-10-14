@@ -16,7 +16,7 @@ connection.on("ReceiveMessage", function (message) {
 connection
   .start()
   .then(function () {
-    document.getElementById("sendButton").disabled = false;
+    console.log("Connection started");
   })
   .catch(function (err) {
     return console.error(err.toString());
@@ -52,7 +52,7 @@ Array.from(document.getElementsByTagName("button")).forEach(function (button) {
       })
       .then((data) => {
         console.log(data);
-        connection.invoke("AddToGroup", data.JobId).catch(function (err) {
+        connection.invoke("AddToGroup", data.jobId).catch(function (err) {
           return console.error(err.toString());
         });
       })
