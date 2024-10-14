@@ -19,7 +19,6 @@ public class EventSubscribeService(ConsumerConfig consumerConfig) : IEventSubscr
       try
       {
         var consumeResult = _consumer.Consume(cancellationToken);
-        Console.WriteLine($"Consumed message '{consumeResult.Message.Value}' at: '{consumeResult.TopicPartitionOffset}'.");
         var value = consumeResult.Message.Value ?? throw new Exception("Value is null");
 
         T? message;
