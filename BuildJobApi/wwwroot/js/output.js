@@ -1,16 +1,17 @@
 "use strict";
 
+var term = new Terminal({
+  cols: 200,
+});
+
+term.open(document.getElementById("terminal"));
+
 var connection = new signalR.HubConnectionBuilder()
   .withUrl("/buildOutputHub")
   .build();
 
 connection.on("ReceiveMessage", function (message) {
-  var li = document.createElement("li");
-  document.getElementById("messagesList").appendChild(li);
-  // We can assign user-supplied strings to an element's textContent because it
-  // is not interpreted as markup. If you're assigning in any other way, you
-  // should be aware of possible script injection concerns.
-  li.textContent = `${message}`;
+  term.write(message + "\r\n");
 });
 
 connection
@@ -52,6 +53,7 @@ Array.from(document.getElementsByTagName("button")).forEach(function (button) {
       })
       .then((data) => {
         console.log(data);
+        term.clear();
         connection.invoke("AddToGroup", data.jobId).catch(function (err) {
           return console.error(err.toString());
         });

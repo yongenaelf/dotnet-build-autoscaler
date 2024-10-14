@@ -8,6 +8,15 @@
         border: 0;
       }
     </style>
+    <head>
+      <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.5.0/xterm.min.css"
+        integrity="sha512-XpXUuzg5afNt1bsgnrOesXP70TLH8tXYYK5sK+Y0UV+YBvJn9EfRFYWy4HT3TVDfH0nl1CO0lwOxIrt2gk9qjg=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"
+      />
+    </head>
   </head>
   <body>
     <h1>WebSocket Sample Application</h1>
@@ -29,7 +38,14 @@
         </div>
       </div>
     </div>
+    <div id="terminal"></div>
     <script src="/js/signalr/dist/browser/signalr.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.5.0/xterm.js"
+      integrity="sha512-Gujw5GajF5is3nMoGv9X+tCMqePLL/60qvAv1LofUZTV9jK8ENbM9L+maGmOsNzuZaiuyc/fpph1KT9uR5w3CQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
     <script src="/js/output.js"></script>
   </body>
 </html>
