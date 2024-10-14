@@ -174,7 +174,7 @@ try
             };
           }
 
-          eventPublishService.PublishAsync(kafkaOutputTopic, outputMessage).Wait();
+          eventPublishService.PublishAsync(kafkaOutputTopic, outputMessage, jobId).Wait();
         }
       };
       process.ErrorDataReceived += (sender, args) => Console.WriteLine(args.Data);
