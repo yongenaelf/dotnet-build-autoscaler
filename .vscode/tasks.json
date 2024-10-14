@@ -28,25 +28,6 @@
       "presentation": {
         "group": "default"
       }
-    },
-    {
-      "label": "Start KafkaConsumer in watch mode",
-      "type": "shell",
-      "command": "dotnet watch --project KafkaConsumer",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "dependsOn": ["Docker Compose Up"],
-      "presentation": {
-        "group": "default"
-      }
-    },
-    {
-      "label": "Start all services in watch mode",
-      "dependsOn": [
-        "Start BuildJobApi in watch mode",
-        "Start KafkaConsumer in watch mode"
-      ]
     }
   ]
 }

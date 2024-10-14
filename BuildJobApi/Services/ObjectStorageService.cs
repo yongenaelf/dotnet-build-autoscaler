@@ -1,9 +1,9 @@
-using Shared.Interfaces;
+using BuildJobApi.Interfaces;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 
-namespace Shared.Services;
+namespace BuildJobApi.Services;
 
 public class ObjectStorageService(string awsAccessKeyId, string awsSecretAccessKey, AmazonS3Config clientConfig, string bucketName) : IObjectStorageService
 {

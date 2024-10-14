@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Shared.Interfaces;
+using BuildJobApi.Interfaces;
 
 namespace BuildJobApi.Controllers;
 

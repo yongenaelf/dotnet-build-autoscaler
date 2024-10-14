@@ -1,8 +1,8 @@
 using ClamAV.Net.Client;
 using ClamAV.Net.Client.Results;
-using Shared.Interfaces;
+using BuildJobApi.Interfaces;
 
-namespace Shared.Services;
+namespace BuildJobApi.Services;
 
 public class VirusScanService(string connectionString) : IVirusScanService
 {

@@ -1,5 +1,3 @@
-include:
-  - kafka-compose.yml #with serviceB declared
 services:
   minio:
     image: quay.io/minio/minio

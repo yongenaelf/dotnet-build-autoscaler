@@ -4,4 +4,4 @@ WORKDIR /app
 COPY --from=mcr.microsoft.com/dotnet/sdk:8.0 /usr/share/dotnet/shared /usr/share/dotnet/shared
 COPY out .
 EXPOSE 80
-ENTRYPOINT ["dotnet", "KafkaConsumer.dll"]
+ENTRYPOINT ["dotnet", "BuildJobApi.dll"]
