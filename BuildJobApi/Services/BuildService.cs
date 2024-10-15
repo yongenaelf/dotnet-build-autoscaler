@@ -14,6 +14,7 @@ public class BuildService : IBuildService
     _hubCallerService = hubCallerService;
     _kafkaService = kafkaService;
     Task.Run(() => ProcessJobLog());
+    Task.Run(() => ProcessJobResult());
   }
   public async Task ProcessBuild(string connectionId, string jobId, string command)
   {
@@ -29,6 +30,17 @@ public class BuildService : IBuildService
       var id = log?.Id;
       var m = log?.Message;
       await _hubCallerService.SendMessageToGroup(id, m);
+    });
+  }
+
+  private async Task ProcessJobResult()
+  {
+    await _kafkaService.SubscribeJobResult(async (message) =>
+    {
+      var result = JsonSerializer.Deserialize<KafkaDto>(message);
+      var id = result?.Id;
+      var m = result?.Message;
+      await _hubCallerService.SendMessageToUser(id, m);
     });
   }
 }
