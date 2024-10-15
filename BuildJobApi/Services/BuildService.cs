@@ -40,7 +40,7 @@ public class BuildService : IBuildService
       var result = JsonSerializer.Deserialize<KafkaDto>(message);
       var id = result?.Id;
       var m = result?.Message;
-      await _hubCallerService.SendMessageToUser(id, m);
+      await _hubCallerService.SendMessageToGroup(id, m);
     });
   }
 }
