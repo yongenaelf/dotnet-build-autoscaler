@@ -1,7 +1,8 @@
-using Amazon.S3;
 using BuildJobApi.Hubs;
-using BuildJobApi.Services;
 using BuildJobApi.Interfaces;
+using BuildJobApi.Services;
+using BuildJobShared.Services;
+using BuildJobShared.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,19 +11,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
 
-#region ObjectStorageService configuration
-var awsAccessKeyId = Environment.GetEnvironmentVariable("MINIO_ACCESS_KEY") ?? "minio";
-var awsSecretAccessKey = Environment.GetEnvironmentVariable("MINIO_SECRET_KEY") ?? "minio123";
-var clientConfig = new AmazonS3Config
-{
-    ServiceURL = Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ?? "http://localhost:9000",
-    ForcePathStyle = true
-};
-var bucketName = Environment.GetEnvironmentVariable("MINIO_BUCKET_NAME") ?? "job-requests";
-builder.Services.AddSingleton<IObjectStorageService>(new ObjectStorageService(awsAccessKeyId, awsSecretAccessKey, clientConfig, bucketName));
-#endregion
-
-builder.Services.AddSingleton<IVirusScanService>(new VirusScanService(Environment.GetEnvironmentVariable("CLAMAV_CONNECTION_STRING") ?? "tcp://127.0.0.1:3310"));
+builder.Services.AddSingleton<IObjectStorageService, ObjectStorageService>();
+builder.Services.AddSingleton<IKafkaService, KafkaService>();
+builder.Services.AddSingleton<IVirusScanService, VirusScanService>();
 builder.Services.AddSingleton<IHubCallerService, HubCallerService>();
 builder.Services.AddSingleton<IBuildService, BuildService>();
 

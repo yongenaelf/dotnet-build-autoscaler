@@ -1,4 +1,4 @@
-namespace BuildJobApi.Interfaces;
+namespace BuildJobShared.Interfaces;
 
 public interface IVirusScanService
 {

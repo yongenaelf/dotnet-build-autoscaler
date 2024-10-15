@@ -21,8 +21,11 @@ jobs:
       attestations: write
       id-token: write
       #
-    env:
-      APP_FOLDER: BuildJobApi
+    strategy:
+      matrix:
+        # Defines a matrix of values for the `APP_FOLDER` environment variable. This variable is used to specify the folder containing the .NET project to build.
+        # The matrix allows the workflow to build multiple projects in parallel.
+        app: [BuildJobApi, BuildJobWorker]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,7 +34,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-      - run: dotnet publish -c Release -o out --self-contained -p:PublishReadyToRun=true ${{ env.APP_FOLDER }}
+      - run: dotnet publish -c Release -o out --self-contained -p:PublishReadyToRun=true ${{ matrix.app }}
 
       # Uses the `docker/login-action` action to log in to the Container registry registry using the account and password that will publish the packages. Once published, the packages are scoped to the account defined here.
       - name: Log in to the Container registry
@@ -45,7 +48,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ env.APP_FOLDER }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.app }}
           tags: |
             type=sha
             # set latest tag for default branch
@@ -67,7 +70,7 @@ jobs:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v1
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ env.APP_FOLDER }}
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.app }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
@@ -92,7 +95,7 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: 'poc-aaa',
               repo: 'devops',
-              workflow_id: 'playground-deploy.yaml',
+              workflow_id: 'playground-autoscaler-deploy.yaml',
               ref: 'main',
               inputs: {
                 env: 'development',

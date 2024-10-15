@@ -1,14 +1,31 @@
-using BuildJobApi.Interfaces;
+using BuildJobShared.Interfaces;
+using BuildJobShared.Settings;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 
-namespace BuildJobApi.Services;
+namespace BuildJobShared.Services;
 
-public class ObjectStorageService(string awsAccessKeyId, string awsSecretAccessKey, AmazonS3Config clientConfig, string bucketName) : IObjectStorageService
+public class ObjectStorageService : IObjectStorageService
 {
-  private IAmazonS3 _s3Client = new AmazonS3Client(awsAccessKeyId, awsSecretAccessKey, clientConfig);
-  private readonly string _bucketName = bucketName;
+  private readonly IConfiguration Configuration;
+  private IAmazonS3 _s3Client;
+  private readonly string _bucketName;
+
+  public ObjectStorageService(IConfiguration configuration)
+  {
+    Configuration = configuration;
+
+    var config = new ObjectStorageSettings();
+    Configuration.GetSection("S3").Bind(config);
+
+    _bucketName = config.BucketName;
+    _s3Client = new AmazonS3Client(config.AccessKey, config.SecretKey, new AmazonS3Config
+    {
+      ServiceURL = config.Endpoint,
+      ForcePathStyle = true
+    });
+  }
 
   public async Task Delete(string key)
   {

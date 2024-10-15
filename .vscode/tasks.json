@@ -28,6 +28,25 @@
       "presentation": {
         "group": "default"
       }
+    },
+    {
+      "label": "Start BuildJobWorker in watch mode",
+      "type": "shell",
+      "command": "dotnet watch --project BuildJobWorker",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": ["Docker Compose Up"],
+      "presentation": {
+        "group": "default"
+      }
+    },
+    {
+      "label": "Start all services in watch mode",
+      "dependsOn": [
+        "Start BuildJobApi in watch mode",
+        "Start BuildJobWorker in watch mode"
+      ]
     }
   ]
 }

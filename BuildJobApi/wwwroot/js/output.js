@@ -40,12 +40,8 @@ Array.from(document.getElementsByTagName("button")).forEach(function (button) {
     // Add the file to the request.
     formData.append("file", file, file.name);
 
-    connection.invoke("AddToGroup", crypto.randomUUID()).catch(function (err) {
-      return console.error(err.toString());
-    });
-
     // Set up the request using fetch.
-    fetch("/upload?command=" + command, {
+    fetch("/upload", {
       method: "POST",
       body: formData,
     })
@@ -58,11 +54,16 @@ Array.from(document.getElementsByTagName("button")).forEach(function (button) {
       .then((data) => {
         console.log(data);
         term.clear();
+        console.log("Starting build...");
         connection
           .invoke("StartBuild", data.jobId, command)
           .catch(function (err) {
             return console.error(err.toString());
           });
+        console.log("Adding to group...");
+        connection.invoke("AddToGroup", data.jobId).catch(function (err) {
+          return console.error(err.toString());
+        });
       })
       .catch((error) => {
         console.error(

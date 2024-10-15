@@ -1,3 +1,5 @@
+include:
+  - compose.kafka.yml
 services:
   minio:
     image: quay.io/minio/minio

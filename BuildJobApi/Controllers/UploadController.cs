@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using BuildJobApi.Interfaces;
+using BuildJobShared.Interfaces;
 
 namespace BuildJobApi.Controllers;
 
@@ -8,7 +8,7 @@ public class UploadController(IObjectStorageService objectStorageService, IVirus
 {
   [HttpPost]
   [Route("upload")]
-  public async Task<IActionResult> UploadFile(IFormFile file, string? command = "build")
+  public async Task<IActionResult> UploadFile(IFormFile file)
   {
     if (file == null || file.Length == 0)
     {
